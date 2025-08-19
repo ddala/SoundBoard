@@ -1,0 +1,21 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+# Node tooling (if you add build scripts later)
+node_modules/
+dist/
+build/
+
+# Ignore all audio files, but keep folder structure
+audio/songs/*
+audio/sounds/*
+!audio/songs/.gitkeep
+!audio/sounds/.gitkeep
+
+# If you later add images and want only placeholders
+images/*
+!images/.gitkeep

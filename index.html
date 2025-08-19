@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SoundBoard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    body { min-height: 100vh; }
+    .sound-card { transition: transform .1s ease-in-out; }
+    .sound-card:active { transform: scale(.995); }
+    .pill { font-variant-caps: all-small-caps; }
+    .tab-pane { padding-top: .75rem; }
+    .sticky-footer { position: sticky; bottom: 0; z-index: 1020; }
+    .thumb-img { object-fit: cover; height: 120px; }
+  </style>
+</head>
+<body class="bg-body text-body">
+  <nav class="navbar navbar-expand-lg border-bottom sticky-top bg-body">
+    <div class="container-fluid">
+      <span class="navbar-brand fw-semibold">🎵 SoundBoard</span>
+</div>
+  </nav>
+
+  <main class="container py-3">
+    <div id="tabs" class="mt-2">
+      <ul class="nav nav-tabs" id="categoryTabs" role="tablist"></ul>
+      <div class="tab-content" id="categoryTabContent"></div>
+    </div>
+
+    <div id="emptyState" class="text-center py-5 d-none">
+      <p class="lead">No sounds loaded. Create a <code>config.json</code> next to this page or adjust the path in <code>CONFIG_URL</code>.</p>
+    </div>
+  </main>
+
+  <footer class="sticky-footer border-top bg-body py-2">
+    <div class="container small d-flex align-items-center justify-content-between">
+      <div>
+        <span class="me-2">Current time:</span>
+        <span id="clock" class="fw-semibold"></span>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span id="nowPlaying" class="text-truncate" style="max-width: 50ch;"></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Single shared audio element to prevent overlapping playback -->
+  <audio id="player" preload="auto" crossorigin="anonymous"></audio>
+
+  <script>
+  // ======== Settings ========
+  const CONFIG_URL = 'config.json'; // adjust if you place the config elsewhere
+  const DEFAULT_THUMB = 'https://via.placeholder.com/300x200?text=No+Image';
+
+  // ======== State ========
+  let allSounds = [];               // loaded config
+  let categories = [];              // unique category names
+  const player = document.getElementById('player');
+  const nowPlaying = document.getElementById('nowPlaying');
+
+  // Load config.json (with a graceful fallback demo)
+  async function loadConfig() {
+    try {
+      const res = await fetch(CONFIG_URL, {cache: 'no-store'});
+      if (!res.ok) throw new Error('Config fetch failed');
+      const cfg = await res.json();
+      if (!cfg || !Array.isArray(cfg.sounds)) throw new Error('Invalid config schema');
+      return cfg.sounds;
+    } catch (e) {
+      console.warn('[Config] using demo fallback because:', e.message);
+      return [
+        { filename: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_8f0c3a.mp3?filename=notification-2-27397.mp3', displayName: 'Demo Bell', type: 'sound', category: 'Alerts', thumbnail: null },
+        { filename: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_ef6d0f.mp3?filename=lofi-study-112191.mp3', displayName: 'Demo Lofi', type: 'song', category: 'Music', thumbnail: null }
+      ];
+    }
+  }
+
+  // Group by category and render Bootstrap tabs & cards
+  function renderTabs() {
+    const tabList = document.getElementById('categoryTabs');
+    const tabContent = document.getElementById('categoryTabContent');
+    tabList.innerHTML = ''; tabContent.innerHTML = '';
+
+    const byCat = new Map();
+    for (const s of allSounds) {
+      if (!byCat.has(s.category)) byCat.set(s.category, []);
+      byCat.get(s.category).push(s);
+    }
+    categories = [...byCat.keys()];
+
+    if (categories.length === 0) {
+      document.getElementById('emptyState').classList.remove('d-none');
+      return;
+    }
+    document.getElementById('emptyState').classList.add('d-none');
+
+    categories.forEach((cat, idx) => {
+      const tabId = `tab-${cssSafe(cat)}`;
+      tabList.insertAdjacentHTML('beforeend', `
+        <li class="nav-item" role="presentation">
+          <button class="nav-link ${idx===0?'active':''}" id="${tabId}-tab" data-bs-toggle="tab" data-bs-target="#${tabId}" type="button" role="tab" aria-controls="${tabId}" aria-selected="${idx===0}">${escapeHtml(cat)}</button>
+        </li>`);
+
+      const items = byCat.get(cat).map(renderCard).join('');
+      tabContent.insertAdjacentHTML('beforeend', `
+        <div class="tab-pane fade ${idx===0?'show active':''}" id="${tabId}" role="tabpanel" aria-labelledby="${tabId}-tab">
+          <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">${items}</div>
+        </div>`);
+    });
+  }
+
+  // Render a single sound card
+  function renderCard(sound) {
+    const id = idForSound(sound);
+    const thumb = sound.thumbnail ? resolveUrl(sound.thumbnail) : DEFAULT_THUMB;
+    return `
+      <div class="col">
+        <div class="card h-100 sound-card" id="card-${id}">
+          <img src="${thumb}" class="card-img-top thumb-img" alt="thumbnail" onerror="this.src='${DEFAULT_THUMB}'">
+          <div class="card-body d-flex flex-column gap-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h6 class="card-title mb-1 text-truncate">${escapeHtml(sound.displayName)}</h6>
+                <span class="badge text-bg-info pill me-2">${escapeHtml(sound.type)}</span>
+              </div>
+              <div class="ms-2">
+                <button class="btn btn-primary btn-sm" data-action="play" data-id="${id}"><i class="bi bi-play-fill"></i></button>
+                <button class="btn btn-outline-secondary btn-sm" data-action="pause" data-id="${id}" disabled><i class="bi bi-pause-fill"></i></button>
+                <button class="btn btn-outline-danger btn-sm" data-action="stop" data-id="${id}" disabled><i class="bi bi-stop-fill"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Event delegation for play/pause/stop
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-action]');
+    if (!btn) return;
+    const action = btn.getAttribute('data-action');
+    const id = btn.getAttribute('data-id');
+    const sound = allSounds.find(s => idForSound(s) === id);
+    if (!sound) return;
+    if (action === 'play') playSound(sound);
+    if (action === 'pause') togglePause(sound);
+    if (action === 'stop') stopSound(sound);
+  });
+
+  // Core controls
+  async function playSound(sound) {
+    try {
+      if (player.src !== resolveUrl(sound.filename)) player.src = resolveUrl(sound.filename);
+      await player.play();
+      updateButtons(sound, 'playing');
+      nowPlaying.textContent = `Now playing: ${sound.displayName}`;
+    } catch (e) {
+      console.error('play error', e);
+      toast('Unable to play. Check the media URL or your browser settings.');
+    }
+  }
+  function togglePause(sound) {
+    if (player.paused) {
+      player.play().then(() => updateButtons(sound, 'playing')).catch(()=>{});
+    } else {
+      player.pause();
+      updateButtons(sound, 'paused');
+    }
+  }
+  function stopSound(sound) {
+    player.pause();
+    player.currentTime = 0;
+    updateButtons(sound, 'stopped');
+    nowPlaying.textContent = '';
+  }
+
+  // Keep UI state when audio ends
+  player.addEventListener('ended', () => {
+    updateAllButtons('stopped');
+    nowPlaying.textContent = '';
+  });
+
+  // Update buttons for a given sound
+  function updateButtons(sound, state) {
+    updateAllButtons('stopped'); // single-source model: reset others
+    const id = idForSound(sound);
+    const card = document.getElementById(`card-${id}`);
+    if (!card) return;
+    const btnPlay = card.querySelector('[data-action="play"]');
+    const btnPause = card.querySelector('[data-action="pause"]');
+    const btnStop = card.querySelector('[data-action="stop"]');
+    if (state === 'playing') { btnPlay.disabled = true; btnPause.disabled = false; btnStop.disabled = false; }
+    else if (state === 'paused') { btnPlay.disabled = false; btnPause.disabled = false; btnStop.disabled = false; }
+    else { btnPlay.disabled = false; btnPause.disabled = true; btnStop.disabled = true; }
+  }
+  function updateAllButtons(state) {
+    document.querySelectorAll('.sound-card').forEach(card => {
+      const btnPlay = card.querySelector('[data-action="play"]');
+      const btnPause = card.querySelector('[data-action="pause"]');
+      const btnStop = card.querySelector('[data-action="stop"]');
+      if (state === 'playing') { btnPlay.disabled = true; btnPause.disabled = false; btnStop.disabled = false; }
+      else if (state === 'paused') { btnPlay.disabled = false; btnPause.disabled = false; btnStop.disabled = false; }
+      else { btnPlay.disabled = false; btnPause.disabled = true; btnStop.disabled = true; }
+    });
+  }
+
+  // Helpers
+  function cssSafe(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+  function idForSound(s) { return btoa(unescape(encodeURIComponent(`${s.category}|${s.displayName}|${s.filename}`))).replace(/=/g,''); }
+  function escapeHtml(s) { return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+  function resolveUrl(path) { try { return new URL(path, document.baseURI).href; } catch { return path; } }
+  function toast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast align-items-center text-bg-dark border-0';
+    el.role = 'alert';
+    el.ariaLive = 'assertive';
+    el.ariaAtomic = 'true';
+    el.innerHTML = `<div class="d-flex"><div class="toast-body">${escapeHtml(msg)}</div><button type=\"button\" class=\"btn-close btn-close-white me-2 m-auto\" data-bs-dismiss=\"toast\" aria-label=\"Close\"></button></div>`;
+    document.body.appendChild(el);
+    const t = new bootstrap.Toast(el, { delay: 4000 });
+    t.show();
+    el.addEventListener('hidden.bs.toast', () => el.remove());
+  }
+
+    // Clock
+  setInterval(() => {
+    const d = new Date();
+    document.getElementById('clock').textContent = d.toLocaleString();
+  }, 1000);
+
+  // Bootstrap init + startup
+  let bootstrap; // populated by CDN script below
+  (async function init() {
+    allSounds = await loadConfig();
+    renderTabs();
+  })();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // expose Bootstrap for toast helper above
+    bootstrap = window.bootstrap;
+  </script>
+</body>
+</html>

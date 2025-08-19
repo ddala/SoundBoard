@@ -1,0 +1,8 @@
+{
+  "sounds": [
+    {"filename":"audio/songs/Matladejojk1.mp3","displayName":"Matlådejojk 1","type":"song","category":"Lunch", "thumbnail":"images/matlada1.jpeg"},
+    {"filename":"audio/songs/Matladejojk2.mp3","displayName":"Matlådejojk 2","type":"song","category":"Lunch", "thumbnail":"images/matlada2.jpeg"},
+    {"filename":"audio/songs/Matladejojk3.mp3","displayName":"Matlådejojk 3","type":"song","category":"Lunch", "thumbnail":"images/matlada3.jpeg"},
+    {"filename":"audio/songs/Fartleir.mp3","displayName":"Fartleir","type":"song","category":"Skidor", "thumbnail":"images/fartleir.jpeg"}
+  ]
+}
