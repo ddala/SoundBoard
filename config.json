@@ -3,6 +3,9 @@
     {"filename":"audio/songs/Matladejojk1.mp3","displayName":"Matlådejojk 1","type":"song","category":"Lunch", "thumbnail":"images/matlada1.jpeg"},
     {"filename":"audio/songs/Matladejojk2.mp3","displayName":"Matlådejojk 2","type":"song","category":"Lunch", "thumbnail":"images/matlada2.jpeg"},
     {"filename":"audio/songs/Matladejojk3.mp3","displayName":"Matlådejojk 3","type":"song","category":"Lunch", "thumbnail":"images/matlada3.jpeg"},
+    {"filename":"audio/songs/Matladanedm.mp3","displayName":"Matlåda - EDM","type":"song","category":"Lunch", "thumbnail":"images/matlada4.jpeg"},
+    {"filename":"audio/songs/Matladanhiphop.mp3","displayName":"Matlåda - HipHop","type":"song","category":"Lunch", "thumbnail":"images/matlada5.jpeg"},
+    {"filename":"audio/songs/Matladanmetal.mp3","displayName":"Matlåda i metall","type":"song","category":"Lunch", "thumbnail":"images/matlada6.jpeg"},
     {"filename":"audio/songs/Fartleir.mp3","displayName":"Fartleir","type":"song","category":"Skidor", "thumbnail":"images/fartleir.jpeg"}
   ]
 }
